@@ -8,12 +8,14 @@ import (
 	"time"
 )
 
+// Unomaly Ingest library
 type Ingest struct {
 	command  chan command
 	shutdown chan struct{}
 	options  Options
 	batch    []*UnomalyEvent
 }
+
 type command func(in *Ingest) bool
 
 // Event expected by the Unomaly HTTP API
@@ -38,27 +40,33 @@ var DefaultOptions = Options{
 	PendingQueueSize: 10000,
 	APIPath:          "/v1/batch",
 }
+
 var total = 0
 
 type Option func(*Options)
 
+// Api on the unomaly instance
 func APIPath(path string) Option {
 	return func(options *Options) {
 		options.APIPath = path
 	}
 }
 
+// Batch size. Increasing it can lead to better performance but also increase memory requirements
 func BatchSize(size int) Option {
 	return func(options *Options) {
 		options.BatchSize = size
 	}
 }
 
+// Flush interval. Default is one second
 func FlushInterval(duration time.Duration) Option {
 	return func(options *Options) {
 		options.FlushInterval = duration
 	}
 }
+
+// Initialise the Unomaly ingest library. The Unomaly host is required.
 func Init(UnomalyEndpoint string, options ...Option) *Ingest {
 
 	opts := DefaultOptions
@@ -78,12 +86,11 @@ func Init(UnomalyEndpoint string, options ...Option) *Ingest {
 	return ingest
 }
 
-func (in *Ingest) Send(ev *UnomalyEvent) error {
+func (in *Ingest) Send(ev *UnomalyEvent) {
 	in.command <- func(in *Ingest) bool {
 		in.add(ev)
 		return false
 	}
-	return nil
 }
 
 func (in *Ingest) add(ev *UnomalyEvent) {
@@ -92,9 +99,9 @@ func (in *Ingest) add(ev *UnomalyEvent) {
 	if len(in.batch) == in.options.BatchSize {
 		in.flush()
 	}
-
 }
 
+// Flush the current batch
 func (in *Ingest) Flush() error {
 	errorCh := make(chan error, 1)
 	in.command <- func(in *Ingest) bool {
@@ -108,6 +115,7 @@ func (in *Ingest) Flush() error {
 	return nil
 }
 
+// Marhsal and send current batch to Unomaly
 func (in *Ingest) sendBatch() error {
 	data, err := json.Marshal(in.batch)
 	if err != nil {
@@ -116,11 +124,10 @@ func (in *Ingest) sendBatch() error {
 
 	resp, err := http.Post(in.options.UnomalyHost+in.options.APIPath, "application/json", bytes.NewBuffer(data))
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
-	fmt.Println(resp.StatusCode)
+	//fmt.Println(resp.StatusCode)
 	err = resp.Body.Close()
 
 	if err != nil {
@@ -129,6 +136,7 @@ func (in *Ingest) sendBatch() error {
 	return err
 }
 
+// Flush current batch
 func (in *Ingest) flush() {
 	if len(in.batch) != 0 {
 		err := in.sendBatch()
@@ -139,6 +147,7 @@ func (in *Ingest) flush() {
 	}
 }
 
+// Flush events in the pipe and stop the event loop
 func (in *Ingest) Shutdown() error {
 	done := make(chan struct{})
 	in.command <- func(in *Ingest) bool {
@@ -159,16 +168,14 @@ func (in *Ingest) Shutdown() error {
 	return nil
 }
 
+// Main loop
 func (in *Ingest) Work() {
 	for {
 		select {
 		case cmd := <-in.command:
-
 			if stop := cmd(in); stop == true {
 				return
-
 			}
-
 		case <-time.Tick(in.options.FlushInterval):
 			in.flush()
 		}
