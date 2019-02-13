@@ -16,7 +16,7 @@ defer ingest.Close()
 
 // Add an event to the queue. The library will take care of batching and sending events to Unomaly
 ingest.send(&ingest.Event{
-	                Message:   "Hello, World!",
+    				Message:   "Hello, World!",
     				Source:    "My-system",
     				Timestamp: time.Now(),
     				Metadata:  nil,

@@ -41,8 +41,6 @@ var DefaultOptions = Options{
 	APIPath:          "/v1/batch",
 }
 
-var total = 0
-
 type Option func(*Options)
 
 // Api on the unomaly instance
@@ -95,7 +93,6 @@ func (in *Ingest) Send(ev *Event) {
 
 func (in *Ingest) add(ev *Event) {
 	in.batch = append(in.batch, ev)
-	total++
 	if len(in.batch) == in.options.BatchSize {
 		in.flush()
 	}
