@@ -48,7 +48,7 @@ func TestIngestBatch(t *testing.T) {
 			}
 			ingest.Send(ev)
 		}
-		err := ingest.Shutdown()
+		err := ingest.Close()
 		s.Close()
 		assert.NoError(t, err)
 

@@ -148,7 +148,7 @@ func (in *Ingest) flush() {
 }
 
 // Flush events in the pipe and stop the event loop
-func (in *Ingest) Shutdown() error {
+func (in *Ingest) Close() error {
 	done := make(chan struct{})
 	in.command <- func(in *Ingest) bool {
 		go func() {
