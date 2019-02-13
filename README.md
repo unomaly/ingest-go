@@ -1,5 +1,5 @@
-# ingest-go
-Go library to send your events to Unomaly, https://unomaly.com
+# Unomaly ingest-go
+Go library to send your logs to Unomaly, https://unomaly.com
 
 
 The API is not stable yet, please contact our support before including it in your project.
