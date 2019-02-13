@@ -18,11 +18,11 @@ func TestIngestBatch(t *testing.T) {
 
 		totalEvents := 1001
 		batchSize := 2
-		allEvents := make([]*UnomalyEvent, 0)
+		allEvents := make([]*Event, 0)
 
 		s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			data, _ := ioutil.ReadAll(r.Body)
-			var batch []*UnomalyEvent
+			var batch []*Event
 			err := json.Unmarshal(data, &batch)
 			//fmt.Println(batch)
 			allEvents = append(allEvents, batch...)
@@ -40,7 +40,7 @@ func TestIngestBatch(t *testing.T) {
 			BatchSize(batchSize))
 
 		for i := 0; i < totalEvents; i++ {
-			ev := &UnomalyEvent{
+			ev := &Event{
 				Message:   fmt.Sprintf("Hello, World %d!", i),
 				Source:    "Test",
 				Timestamp: time.Now(),

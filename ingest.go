@@ -13,13 +13,13 @@ type Ingest struct {
 	command  chan command
 	shutdown chan struct{}
 	options  Options
-	batch    []*UnomalyEvent
+	batch    []*Event
 }
 
 type command func(in *Ingest) bool
 
 // Event expected by the Unomaly HTTP API
-type UnomalyEvent struct {
+type Event struct {
 	Message   string                 `json:"message"`
 	Source    string                 `json:"source"`
 	Timestamp time.Time              `json:"timestamp"`
@@ -79,21 +79,21 @@ func Init(UnomalyEndpoint string, options ...Option) *Ingest {
 		command:  make(chan command, opts.PendingQueueSize),
 		shutdown: make(chan struct{}),
 		options:  opts,
-		batch:    make([]*UnomalyEvent, 0, opts.BatchSize),
+		batch:    make([]*Event, 0, opts.BatchSize),
 	}
 	go ingest.Work()
 
 	return ingest
 }
 
-func (in *Ingest) Send(ev *UnomalyEvent) {
+func (in *Ingest) Send(ev *Event) {
 	in.command <- func(in *Ingest) bool {
 		in.add(ev)
 		return false
 	}
 }
 
-func (in *Ingest) add(ev *UnomalyEvent) {
+func (in *Ingest) add(ev *Event) {
 	in.batch = append(in.batch, ev)
 	total++
 	if len(in.batch) == in.options.BatchSize {
@@ -140,7 +140,7 @@ func (in *Ingest) sendBatch() error {
 func (in *Ingest) flush() {
 	if len(in.batch) != 0 {
 		err := in.sendBatch()
-		in.batch = make([]*UnomalyEvent, 0, in.options.BatchSize)
+		in.batch = make([]*Event, 0, in.options.BatchSize)
 		if err != nil {
 			fmt.Printf("Failed to send batch : %s\n", err)
 		}
