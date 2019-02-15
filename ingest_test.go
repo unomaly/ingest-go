@@ -53,6 +53,5 @@ func TestIngestBatch(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, totalEvents, len(allEvents))
-
 	})
 }

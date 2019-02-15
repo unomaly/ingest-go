@@ -2,9 +2,11 @@ package ingest
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -14,6 +16,7 @@ type Ingest struct {
 	shutdown chan struct{}
 	options  Options
 	batch    []*Event
+	client   *http.Client
 }
 
 type command func(in *Ingest) bool
@@ -32,6 +35,7 @@ type Options struct {
 	PendingQueueSize int
 	UnomalyHost      string
 	APIPath          string
+	SkipTLSVerify    bool
 }
 
 var DefaultOptions = Options{
@@ -64,6 +68,13 @@ func FlushInterval(duration time.Duration) Option {
 	}
 }
 
+// Skip SSL certificate verification, if you are using a self signed certificate.
+func SkipTLSVerify() Option {
+	return func(options *Options) {
+		options.SkipTLSVerify = true
+	}
+}
+
 // Initialise the Unomaly ingest library. The Unomaly host is required.
 func Init(UnomalyEndpoint string, options ...Option) *Ingest {
 
@@ -73,11 +84,18 @@ func Init(UnomalyEndpoint string, options ...Option) *Ingest {
 	}
 	opts.UnomalyHost = UnomalyEndpoint
 
+	if !strings.HasPrefix(UnomalyEndpoint, "http") {
+		opts.UnomalyHost = "https://" + UnomalyEndpoint
+	}
+
+	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: opts.SkipTLSVerify}}
+
 	ingest := &Ingest{
 		command:  make(chan command, opts.PendingQueueSize),
 		shutdown: make(chan struct{}),
 		options:  opts,
 		batch:    make([]*Event, 0, opts.BatchSize),
+		client:   &http.Client{Transport: tr},
 	}
 	go ingest.Work()
 
@@ -119,7 +137,7 @@ func (in *Ingest) sendBatch() error {
 		return fmt.Errorf("failed to marshal JSON payload: %s", err)
 	}
 
-	resp, err := http.Post(in.options.UnomalyHost+in.options.APIPath, "application/json", bytes.NewBuffer(data))
+	resp, err := in.client.Post(in.options.UnomalyHost+in.options.APIPath, "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		return err
 	}
