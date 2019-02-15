@@ -1,14 +1,10 @@
 # Unomaly ingest-go
 Go library to send your logs to Unomaly, https://unomaly.com
 
-
-The API is a work in progress and is not stable yet, please contact our support before including it in your project.
-
-
 ```go
  
 // Initialize the library
-ingest := ingest.Init("https://my-host")
+ingest := ingest.Init("my.unomaly.host")
 
 // Flush all data to Unomaly before exiting
 defer ingest.Close()
