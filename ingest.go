@@ -185,13 +185,14 @@ func (in *Ingest) Close() error {
 
 // Main loop
 func (in *Ingest) Work() {
+	ticker := time.Tick(in.options.FlushInterval)
 	for {
 		select {
 		case cmd := <-in.command:
 			if stop := cmd(in); stop == true {
 				return
 			}
-		case <-time.Tick(in.options.FlushInterval):
+		case <-ticker:
 			in.flush()
 		}
 	}
