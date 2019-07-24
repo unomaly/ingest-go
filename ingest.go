@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -36,6 +37,7 @@ type Options struct {
 	UnomalyHost      string
 	APIPath          string
 	SkipTLSVerify    bool
+	Gzip             bool
 }
 
 var DefaultOptions = Options{
@@ -43,6 +45,7 @@ var DefaultOptions = Options{
 	FlushInterval:    time.Second,
 	PendingQueueSize: 10000,
 	APIPath:          "/v1/batch",
+	Gzip:             false,
 }
 
 type Option func(*Options)
@@ -72,6 +75,13 @@ func FlushInterval(duration time.Duration) Option {
 func SkipTLSVerify() Option {
 	return func(options *Options) {
 		options.SkipTLSVerify = true
+	}
+}
+
+// Compress payload using gzip
+func Gzip() Option {
+	return func(options *Options) {
+		options.Gzip = true
 	}
 }
 
@@ -130,25 +140,41 @@ func (in *Ingest) Flush() error {
 	return nil
 }
 
-// Marhsal and send current batch to Unomaly
+// Marshal and send current batch to Unomaly
 func (in *Ingest) sendBatch() error {
 	data, err := json.Marshal(in.batch)
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON payload: %s", err)
 	}
 
-	resp, err := in.client.Post(in.options.UnomalyHost+in.options.APIPath, "application/json", bytes.NewBuffer(data))
+	var buf bytes.Buffer
+	if in.options.Gzip {
+		g := gzip.NewWriter(&buf)
+		_, err = g.Write(data)
+		if err != nil {
+			return err
+		}
+
+		err = g.Close()
+		if err != nil {
+			return err
+		}
+	} else {
+		buf.Write(data)
+	}
+
+	req, err := http.NewRequest("POST", in.options.UnomalyHost+in.options.APIPath, &buf)
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
 
-	//fmt.Println(resp.StatusCode)
-	err = resp.Body.Close()
-
+	resp, err := in.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON payload: %s", err)
 	}
-	return err
+	return resp.Body.Close()
 }
 
 // Flush current batch
