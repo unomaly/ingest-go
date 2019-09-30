@@ -168,7 +168,9 @@ func (in *Ingest) sendBatch() error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Content-Encoding", "gzip")
+	if in.options.Gzip {
+		req.Header.Set("Content-Encoding", "gzip")
+	}
 
 	resp, err := in.client.Do(req)
 	if err != nil {
